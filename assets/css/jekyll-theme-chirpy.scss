@@ -1,0 +1,80 @@
+---
+---
+
+@use 'sass:list';
+@use 'abstracts/variables' with (
+  $theme: '{{ site.theme_mode }}'
+);
+
+/* prettier-ignore */
+@use 'main
+{%- if jekyll.environment == 'production' -%}
+  .bundle
+{%- endif -%}
+';
+
+/* append your custom style below */
+
+/* Nested ordered lists follow Notion's style: 1. -> a. -> i. */
+.content ol ol {
+  list-style-type: lower-alpha;
+}
+
+.content ol ol ol {
+  list-style-type: lower-roman;
+}
+
+.content ol ol ol ol {
+  list-style-type: decimal;
+}
+
+/* Notion-style text colors: <span class="c-red">text</span>, **text**{: .c-red} */
+/* Notion-style highlights:  <span class="hl-yellow">text</span> */
+$notion-colors: (
+  /* name: (light text, dark text, light bg, dark bg) */
+  "gray": (#787774, #9b9b9b, #f1f1ef, #2f2f2f),
+  "brown": (#9f6b53, #ba856f, #f4eeee, #4a3228),
+  "orange": (#d9730d, #c77d48, #fbecdd, #5c3b23),
+  "yellow": (#cb912f, #ca9849, #fbf3db, #56452f),
+  "green": (#448361, #529e72, #edf3ec, #243d30),
+  "blue": (#337ea9, #5e87c9, #e7f3f8, #143a4e),
+  "purple": (#9065b0, #9d68d3, #f6f3f9, #3c2d49),
+  "pink": (#c14c8a, #d15796, #faf1f5, #4e2c3c),
+  "red": (#d44c47, #df5452, #fdebec, #522e2a)
+);
+
+:root {
+  @each $name, $c in $notion-colors {
+    --c-#{$name}: #{list.nth($c, 1)};
+    --hl-#{$name}: #{list.nth($c, 3)};
+  }
+}
+
+@mixin notion-dark {
+  @each $name, $c in $notion-colors {
+    --c-#{$name}: #{list.nth($c, 2)};
+    --hl-#{$name}: #{list.nth($c, 4)};
+  }
+}
+
+:root[data-bs-theme='dark'] {
+  @include notion-dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-bs-theme]) {
+    @include notion-dark;
+  }
+}
+
+@each $name, $c in $notion-colors {
+  .c-#{$name} {
+    color: var(--c-#{$name});
+  }
+
+  .hl-#{$name} {
+    background-color: var(--hl-#{$name});
+    border-radius: 0.2em;
+    padding: 0 0.15em;
+  }
+}
