@@ -78,3 +78,14 @@ $notion-colors: (
     padding: 0 0.15em;
   }
 }
+
+/* Tables fit the content width: wrap cell text instead of scrolling sideways */
+.content .table-wrapper > table {
+  th,
+  td {
+    min-width: 6rem;
+    white-space: normal;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+}
