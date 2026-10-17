@@ -71,11 +71,11 @@ order: 5
   var body = $('quiz-body'), bar = $('quiz-bar'), score = $('quiz-score');
   var editBtn = $('quiz-edit'), clearBtn = $('quiz-clearall'), ratioWrap = $('quiz-ratio-wrap');
 
-  var pristine = null;   // 원본 본문 (바뀌지 않음)
-  var ranges = [];       // 직접 지정: [{s, e}] 원본 텍스트 기준 offset
-  var editing = true;    // 직접 지정: 편집/풀이 모드
+  var pristine = null;
+  var ranges = [];
+  var editing = true;
   var blanks = [];
-  var notice = '';       // 본문 변경으로 빈 칸이 제외됐을 때 보여줄 안내
+  var notice = '';
 
   function storeKey() { return 'quiz-ranges:' + sel.value; }
   function saveRanges() { localStorage.setItem(storeKey(), JSON.stringify(ranges)); }
@@ -83,10 +83,8 @@ order: 5
     try { ranges = JSON.parse(localStorage.getItem(storeKey())) || []; } catch (e) { ranges = []; }
   }
 
-  // 비교용 정규화: 공백/대소문자/문장부호 무시
   function norm(s) { return s.toLowerCase().replace(/[\s .,:;!?'"`*_\-]/g, ''); }
 
-  // 정답 후보: 전체, 괄호 앞부분, 괄호 안 내용, "/" 로 나뉜 각 항목
   function answers(text) {
     var set = {}, t = text.trim();
     function add(x) { x = norm(x); if (x) set[x] = true; }
@@ -97,8 +95,6 @@ order: 5
     return Object.keys(set);
   }
 
-  // 저장된 빈 칸을 현재 본문과 대조해 보정한다.
-  // 위치의 글자가 같으면 유지, 다르면 같은 텍스트를 가장 가까운 위치에서 다시 찾고, 못 찾으면 버린다.
   function reconcile() {
     var nodes = textNodes(pristine);
     var full = nodes.map(function (t) { return t.node.nodeValue; }).join('');
@@ -110,7 +106,7 @@ order: 5
     }
     var kept = [], dropped = 0, moved = 0;
     ranges.slice().sort(function (a, b) { return a.s - b.s; }).forEach(function (r) {
-      if (!r.text) {                       // 예전 형식(text 없음): 현재 위치의 글자를 기준으로 삼는다
+      if (!r.text) {
         if (r.e <= full.length && fits(r.s, r.e) && !overlaps(r.s, r.e, kept)) {
           kept.push({ s: r.s, e: r.e, text: full.slice(r.s, r.e) });
         } else dropped++;
@@ -198,7 +194,7 @@ order: 5
         }
       }
     });
-    blanks.reverse(); // 문서 순서로
+    blanks.reverse();
   }
 
   function render() {
@@ -252,7 +248,6 @@ order: 5
       .catch(function () { body.textContent = '불러오지 못함'; });
   }
 
-  // 편집 모드: 드래그로 빈 칸 추가
   function onSelect() {
     if (modeSel.value !== 'manual' || !editing) return;
     var s = window.getSelection();
@@ -278,7 +273,6 @@ order: 5
   body.addEventListener('mouseup', function () { setTimeout(onSelect, 0); });
   body.addEventListener('touchend', function () { setTimeout(onSelect, 300); });
 
-  // 편집 모드: 빈 칸 클릭으로 취소
   body.addEventListener('click', function (e) {
     var m = e.target.closest && e.target.closest('span.mark');
     if (!m || !editing) return;
