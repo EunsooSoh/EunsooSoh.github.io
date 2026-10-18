@@ -44,6 +44,7 @@ order: 5
   <button id="quiz-clearall" type="button" class="btn btn-outline-danger btn-sm" style="display:none">빈 칸 모두 지우기</button>
   <button id="quiz-check" type="button" class="btn btn-primary btn-sm">확인</button>
   <button id="quiz-reveal" type="button" class="btn btn-outline-secondary btn-sm">정답 보기</button>
+  <button id="quiz-export" type="button" class="btn btn-outline-secondary btn-sm">오답 파일 받기</button>
   <button id="quiz-reset" type="button" class="btn btn-outline-secondary btn-sm">초기화</button>
   <span id="quiz-score" style="margin-left:.75rem"></span>
 </div>
@@ -76,6 +77,7 @@ order: 5
   var editing = true;
   var blanks = [];
   var notice = '';
+  var exportRoot = null;
 
   function storeKey() { return 'quiz-ranges:' + sel.value; }
   function saveRanges() { localStorage.setItem(storeKey(), JSON.stringify(ranges)); }
@@ -83,7 +85,16 @@ order: 5
     try { ranges = JSON.parse(localStorage.getItem(storeKey())) || []; } catch (e) { ranges = []; }
   }
 
-  function norm(s) { return s.toLowerCase().replace(/[\s .,:;!?'"`*_\-]/g, ''); }
+  // 동의어: 정규화된 입력 전체가 키와 같으면 값으로 치환 (정답/입력 양쪽에 적용됨)
+  var ALIAS = {
+    'hw': '하드웨어', 'hardware': '하드웨어',
+    'sw': '소프트웨어', 'software': '소프트웨어',
+    'os': '운영체제', 'operatingsystem': '운영체제',
+    'db': '데이터베이스', 'database': '데이터베이스',
+    'cpu': '중앙처리장치', 'centralprocessingunit': '중앙처리장치'
+  };
+
+  function norm(s) { s = s.toLowerCase().replace(/[\s .,:;!?'"`*_\-]/g, ''); return ALIAS[s] || s; }
 
   function answers(text) {
     var set = {}, t = text.trim();
@@ -205,7 +216,7 @@ order: 5
     var manual = modeSel.value === 'manual';
     ratioWrap.style.display = manual ? 'none' : '';
     editBtn.style.display = clearBtn.style.display = manual ? '' : 'none';
-    $('quiz-check').style.display = $('quiz-reveal').style.display = $('quiz-reset').style.display =
+    $('quiz-check').style.display = $('quiz-reveal').style.display = $('quiz-reset').style.display = $('quiz-export').style.display =
       (manual && editing) ? 'none' : '';
 
     if (manual) {
@@ -214,6 +225,7 @@ order: 5
     } else {
       renderBold(root);
     }
+    exportRoot = root.cloneNode(true);
     body.appendChild(root);
     bar.style.display = '';
 
@@ -300,6 +312,7 @@ order: 5
       clear(i);
       var good = answers(i.dataset.answer).indexOf(norm(i.value)) !== -1 && norm(i.value) !== '';
       i.classList.add(good ? 'ok' : 'no');
+      i.dataset.wrong = good ? '' : '1';
       if (good) ok++;
     });
     score.textContent = ok + ' / ' + blanks.length + ' 정답';
@@ -313,8 +326,75 @@ order: 5
     });
   };
   $('quiz-reset').onclick = function () {
-    blanks.forEach(function (i) { clear(i); i.value = ''; });
+    blanks.forEach(function (i) { clear(i); i.value = ''; delete i.dataset.wrong; });
     score.textContent = '빈 칸 ' + blanks.length + '개';
+  };
+
+  function esc(t) {
+    return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  $('quiz-export').onclick = function () {
+    var inputs = body.querySelectorAll('input.blank');
+    if (!exportRoot || !inputs.length) return;
+    if (!blanks.some(function (i) { return i.dataset.wrong !== undefined; })) {
+      score.textContent = '먼저 확인을 눌러 채점하세요'; return;
+    }
+    var clone = exportRoot.cloneNode(true);
+    var targets = clone.querySelectorAll('input.blank');
+    var wrong = 0;
+    inputs.forEach(function (inp, k) {
+      var t = targets[k];
+      if (!t) return;
+      var answer = inp.dataset.answer;
+      if (inp.dataset.wrong === '1') {
+        var mk = document.createElement('mark'), st = document.createElement('strong');
+        st.textContent = answer;
+        mk.appendChild(st);
+        mk.title = inp.value ? '내 답: ' + inp.value : '무응답';
+        t.replaceWith(mk);
+        wrong++;
+      } else {
+        t.replaceWith(document.createTextNode(answer));
+      }
+    });
+    if (!wrong) { score.textContent = '틀린 빈 칸이 없어요'; return; }
+
+    var abs = function (u) { try { return new URL(u, location.href).href; } catch (e) { return u; } };
+    clone.querySelectorAll('img').forEach(function (img) {
+      var u = img.getAttribute('data-src') || img.getAttribute('src');
+      if (u) img.setAttribute('src', abs(u));
+      img.removeAttribute('data-src'); img.removeAttribute('srcset'); img.removeAttribute('loading');
+      img.classList.remove('lazyload');
+    });
+    clone.querySelectorAll('a[href]').forEach(function (a) {
+      var h = a.getAttribute('href');
+      if (h && h.charAt(0) !== '#') a.setAttribute('href', abs(h));
+    });
+
+    var opt = sel.options[sel.selectedIndex];
+    var title = opt ? opt.textContent.replace(/^\d{4}-\d{2}-\d{2}\s*·\s*/, '') : '퀴즈';
+    var math = /\$|\\\(|\\\[/.test(clone.textContent);
+    var html = '<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<title>' + esc(title) + ' - 오답</title><style>' +
+      'body{max-width:860px;margin:2rem auto;padding:0 1rem;font:16px/1.7 system-ui,-apple-system,"Noto Sans KR",sans-serif;color:#222}' +
+      'img{max-width:100%;height:auto}pre{background:#f5f5f5;padding:.8rem;overflow:auto}' +
+      'code{background:#f5f5f5;padding:0 .25em;border-radius:3px}pre code{padding:0}' +
+      'table{border-collapse:collapse}th,td{border:1px solid #ccc;padding:.3rem .6rem}' +
+      'mark{background:#fff176;padding:0 .15em;border-radius:2px}' +
+      '</style>' +
+      (math ? '<script>window.MathJax={tex:{inlineMath:[["$","$"],["\\\\(","\\\\)"]],displayMath:[["$$","$$"],["\\\\[","\\\\]"]]}};<\/script>' +
+              '<script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"><\/script>' : '') +
+      '</head><body><h1>' + esc(title) + '</h1><p>틀린 빈 칸 ' + wrong + '개 / 전체 ' + inputs.length + '개</p>' +
+      '<article>' + clone.innerHTML + '</article></body></html>';
+
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+    a.download = title.replace(/[\\/:*?"<>|\s]+/g, '_') + '_오답.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+    score.textContent = '오답 ' + wrong + '개를 형광펜으로 표시한 파일을 저장했어요';
   };
 
   $('quiz-start').onclick = function () {
