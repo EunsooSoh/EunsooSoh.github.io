@@ -85,7 +85,7 @@ order: 5
     try { ranges = JSON.parse(localStorage.getItem(storeKey())) || []; } catch (e) { ranges = []; }
   }
 
-  // 동의어: 정규화된 입력 전체가 키와 같으면 값으로 치환 (정답/입력 양쪽에 적용됨)
+  /* 동의어: 정규화된 입력 전체가 키와 같으면 값으로 치환 (정답/입력 양쪽에 적용됨) */
   var ALIAS = {
     'hw': '하드웨어', 'hardware': '하드웨어',
     'sw': '소프트웨어', 'software': '소프트웨어',
